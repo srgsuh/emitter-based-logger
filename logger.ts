@@ -17,32 +17,40 @@ const LEVEL_PRIORITY: Record<string, number> = {
 }
 
 export default class Logger {
-    public static DEFAULT_LEVEL: LogLevel = "info";
+    public static DEFAULT_LOG_LEVEL: LogLevel = "info";
     public static CONFIG_LEVEL_KEY: string = "log_level";
     private static ERR_PATTERN= (value: string) =>
         `Config key "${Logger.CONFIG_LEVEL_KEY}" value "${value}" is invalid. Expected one of: ${Object.keys(LEVEL_PRIORITY).join(", ")}.`;
 
-    private readonly priority: number;
-    private readonly emitter= new EventEmitter();
+    private readonly _currentLogLevel: LogLevel;
+    private readonly _emitter= new EventEmitter();
 
     constructor() {
-        this.emitter = new EventEmitter();
-        this.priority = LEVEL_PRIORITY[this.getConfigLevel()];
+        this._emitter = new EventEmitter();
+        this._currentLogLevel = this.getConfigLevel();
     }
 
     addLevelHandler(level: LogLevel, messageHandler: (message: string) => void): void {
-        this.emitter.on(level, messageHandler);
+        this._emitter.on(level, messageHandler);
     }
 
     log(level: LogLevel, message: string): void {
-        this.emitter.emit(level, message);
-        if (LEVEL_PRIORITY[level] >= this.priority) {
-            this.emitter.emit("log", {level, message});
+        this._emitter.emit(level, message);
+        if (LEVEL_PRIORITY[level] >= this.currentPriority) {
+            this._emitter.emit("log", {level, message});
         }
     }
 
     addHandler(handler: (e: LogEvent) => void): void {
-        this.emitter.on("log", handler);
+        this._emitter.on("log", handler);
+    }
+
+    get currentLogLevel(): LogLevel {
+        return this._currentLogLevel;
+    }
+
+    get currentPriority(): number {
+        return LEVEL_PRIORITY[this._currentLogLevel];
     }
 
     private getConfigLevel(): LogLevel {
@@ -53,6 +61,6 @@ export default class Logger {
             }
             return (stringValue as LogLevel);
         }
-        return Logger.DEFAULT_LEVEL;
+        return Logger.DEFAULT_LOG_LEVEL;
     }
 }
