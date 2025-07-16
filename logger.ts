@@ -22,8 +22,8 @@ export default class Logger {
     private static ERR_PATTERN= (value: string) =>
         `Config key "${Logger.CONFIG_LEVEL_KEY}" value "${value}" is invalid. Expected one of: ${Object.keys(LEVEL_PRIORITY).join(", ")}.`;
 
-    private priority: number = LEVEL_PRIORITY[Logger.DEFAULT_LEVEL];
-    private emitter = new EventEmitter();
+    private readonly priority: number;
+    private readonly emitter= new EventEmitter();
 
     constructor() {
         this.emitter = new EventEmitter();
@@ -36,7 +36,9 @@ export default class Logger {
 
     log(level: LogLevel, message: string): void {
         this.emitter.emit(level, message);
-        this.emitter.emit("log", {level, message});
+        if (LEVEL_PRIORITY[level] >= this.priority) {
+            this.emitter.emit("log", {level, message});
+        }
     }
 
     addHandler(handler: (e: LogEvent) => void): void {
