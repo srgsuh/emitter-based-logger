@@ -22,40 +22,41 @@ const LEVEL_PRIORITY: Record<string, number> = {
 
 class LoggerConfigError extends Error {}
 
-export default class Logger extends EventEmitter {
+export default class Logger {
     public static DEFAULT_LOG_LEVEL: LogLevel = "info";
     public static CONFIG_LEVEL_KEY: string = "log_level";
 
     private _currentLogLevel: LogLevel;
+    private emitter: EventEmitter;
 
     constructor() {
-        super();
         this._currentLogLevel = this.getConfigLevel();
+        this.emitter = new EventEmitter();
     }
 
     log(level: LogLevel, message: string): void {
-        this.emit(level, message);
+        this.emitter.emit(level, message);
         if (LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this._currentLogLevel]) {
-            this.emit("log", {level, message});
+            this.emitter.emit("log", {level, message});
         }
     }
 
     addLevelHandler(level: LogLevel, messageHandler: MessageHandler): MessageHandler {
-        this.on(level, messageHandler);
+        this.emitter.on(level, messageHandler);
         return messageHandler;
     }
 
     removeLevelHandler(level: LogLevel, messageHandler: MessageHandler): void {
-        this.off(level, messageHandler);
+        this.emitter.off(level, messageHandler);
     }
 
     subscribe(handler: LogHandler): LogHandler {
-        this.on("log", handler);
+        this.emitter.on("log", handler);
         return handler;
     }
 
     unsubscribe(handler: LogHandler): void {
-        this.off("log", handler);
+        this.emitter.off("log", handler);
     }
 
     get currentLogLevel(): LogLevel {
