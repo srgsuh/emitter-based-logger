@@ -8,6 +8,10 @@ interface LogEvent {
     message: string;
 }
 
+type LogHandler = (e: LogEvent) => void;
+
+type MessageHandler = (message: string) => void;
+
 const LEVEL_PRIORITY: Record<string, number> = {
     trace: 0,
     debug: 1,
@@ -16,51 +20,55 @@ const LEVEL_PRIORITY: Record<string, number> = {
     critical: 4,
 }
 
-export default class Logger {
+class LoggerConfigError extends Error {}
+
+export default class Logger extends EventEmitter {
     public static DEFAULT_LOG_LEVEL: LogLevel = "info";
     public static CONFIG_LEVEL_KEY: string = "log_level";
-    private static ERR_PATTERN= (value: string) =>
-        `Config key "${Logger.CONFIG_LEVEL_KEY}" value "${value}" is invalid. Expected one of: ${Object.keys(LEVEL_PRIORITY).join(", ")}.`;
 
-    private readonly _currentLogLevel: LogLevel;
-    private readonly _emitter= new EventEmitter();
+    private _currentLogLevel: LogLevel;
 
     constructor() {
-        this._emitter = new EventEmitter();
+        super();
         this._currentLogLevel = this.getConfigLevel();
     }
 
-    addLevelHandler(level: LogLevel, messageHandler: (message: string) => void): void {
-        this._emitter.on(level, messageHandler);
-    }
-
     log(level: LogLevel, message: string): void {
-        this._emitter.emit(level, message);
-        if (LEVEL_PRIORITY[level] >= this.currentPriority) {
-            this._emitter.emit("log", {level, message});
+        this.emit(level, message);
+        if (LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[this._currentLogLevel]) {
+            this.emit("log", {level, message});
         }
     }
 
-    addHandler(handler: (e: LogEvent) => void): void {
-        this._emitter.on("log", handler);
+    addLevelHandler(level: LogLevel, messageHandler: MessageHandler): MessageHandler {
+        this.on(level, messageHandler);
+        return messageHandler;
+    }
+
+    removeLevelHandler(level: LogLevel, messageHandler: MessageHandler): void {
+        this.off(level, messageHandler);
+    }
+
+    subscribe(handler: LogHandler): LogHandler {
+        this.on("log", handler);
+        return handler;
+    }
+
+    unsubscribe(handler: LogHandler): void {
+        this.off("log", handler);
     }
 
     get currentLogLevel(): LogLevel {
         return this._currentLogLevel;
     }
 
-    get currentPriority(): number {
-        return LEVEL_PRIORITY[this._currentLogLevel];
-    }
-
     private getConfigLevel(): LogLevel {
-        if (config.has(Logger.CONFIG_LEVEL_KEY)) {
-            const stringValue: string = config.get(Logger.CONFIG_LEVEL_KEY);
-            if (!(stringValue in LEVEL_PRIORITY)) {
-                throw new Error(`${Logger.ERR_PATTERN(stringValue)}`);
-            }
-            return (stringValue as LogLevel);
+        const key = Logger.CONFIG_LEVEL_KEY;
+        const level = config.has(key)? config.get(key) as LogLevel : Logger.DEFAULT_LOG_LEVEL;
+        if (!(level in LEVEL_PRIORITY)) {
+            throw new LoggerConfigError(`Config key "${Logger.CONFIG_LEVEL_KEY}" value is invalid. \
+Expected one of: ${Object.keys(LEVEL_PRIORITY).join(", ")}.`);
         }
-        return Logger.DEFAULT_LOG_LEVEL;
+        return level;
     }
 }
