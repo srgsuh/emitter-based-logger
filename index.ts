@@ -1,5 +1,5 @@
 
-import Logger from './logger.ts';
+import Logger from './src/logger.ts';
 
 const logger = new Logger();
 
